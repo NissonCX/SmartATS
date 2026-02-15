@@ -14,32 +14,29 @@ public enum ResultCode {
     SUCCESS(200, "操作成功"),
 
     // ========== 通用错误 4xxxx ==========
-    BAD_REQUEST(40001, "参数校验失败"),
-    UNAUTHORIZED(40101, "未登录，请先登录"),
-    FORBIDDEN(40301, "无权限访问"),
-    NOT_FOUND(40401, "资源不存在"),
+    BAD_REQUEST(40001, "参数校验失败"), UNAUTHORIZED(40101, "未登录，请先登录"), FORBIDDEN(40301, "无权限访问"), NOT_FOUND(40401, "资源不存在"),
 
     // ========== 业务错误 5xxxx ==========
-    INTERNAL_ERROR(50001, "系统内部错误"),
-    AI_SERVICE_ERROR(50002, "AI服务不可用"),
-    FILE_UPLOAD_ERROR(50003, "文件上传失败"),
+    INTERNAL_ERROR(50001, "系统内部错误"), AI_SERVICE_ERROR(50002, "AI服务不可用"), FILE_UPLOAD_ERROR(50003, "文件上传失败"),
 
     // ========== 认证模块错误 10xxx ==========
+    // 用户相关
     USER_NOT_FOUND(10001, "用户不存在"),
     USER_ALREADY_EXISTS(10002, "用户已存在"),
-    PASSWORD_ERROR(10003, "密码错误"),
-    USER_DISABLED(10004, "账号已禁用"),
+    USERNAME_ALREADY_EXISTS(10003, "用户名已存在"),
+    EMAIL_ALREADY_EXISTS(10004, "邮箱已被注册"),
+    PASSWORD_ERROR(10005, "密码错误"),
+    INVALID_CREDENTIALS(10006, "用户名或密码错误"),
+    USER_DISABLED(10007, "账号已禁用"),
+    ACCOUNT_DISABLED(10008, "账号已被禁用，请联系管理员"),
+    TOKEN_INVALID(10009, "Token 无效或已过期"),
+    TOKEN_REFRESH_FAILED(10010, "Token 刷新失败"),
 
     // ========== 简历模块错误 20xxx ==========
-    RESUME_NOT_FOUND(20001, "简历不存在"),
-    RESUME_ALREADY_PARSED(20002, "简历已解析，请勿重复提交"),
-    FILE_TYPE_NOT_SUPPORTED(20003, "不支持的文件类型"),
-    FILE_SIZE_EXCEEDED(20004, "文件大小超限"),
-    RESUME_DUPLICATE(20005, "简历文件已存在"),
+    RESUME_NOT_FOUND(20001, "简历不存在"), RESUME_ALREADY_PARSED(20002, "简历已解析，请勿重复提交"), FILE_TYPE_NOT_SUPPORTED(20003, "不支持的文件类型"), FILE_SIZE_EXCEEDED(20004, "文件大小超限"), RESUME_DUPLICATE(20005, "简历文件已存在"),
 
     // ========== AI 相关错误 30xxx ==========
-    AI_QUOTA_EXCEEDED(30001, "AI调用次数超限"),
-    AI_PARSE_FAILED(30002, "简历解析失败");
+    AI_QUOTA_EXCEEDED(30001, "AI调用次数超限"), AI_PARSE_FAILED(30002, "简历解析失败");
 
     /**
      * 错误码

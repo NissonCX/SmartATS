@@ -6,11 +6,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **SmartATS** is an intelligent recruitment management system for HR professionals. The system enables batch resume uploads, AI-powered automatic parsing of structured information, and RAG semantic talent search.
 
-**Current State**: This is a greenfield project. No Java source code exists yet. The repository contains comprehensive design documentation in the `docs/` folder.
+**Current State** (2026-02-15):
+- ✅ Project skeleton established (Spring Boot 3.1.6 + MyBatis-Plus 3.5.9)
+- ✅ Authentication module structure (8 files created)
+- ✅ UserService implementation with real database operations
+- ✅ ResultCode enhanced with authentication error codes
+- ✅ BusinessException optimized with multiple constructors
+- ⏳ Spring Security configuration pending (all requests return 401)
+- ⏳ Database tables pending creation
+- ⏳ Authentication interface testing pending
+
+**Completed Modules**:
+- `common/` - Unified response wrapper, global exception handler, error codes
+- `module/auth/` - Complete auth module (controller, service, mapper, entity, DTOs, JWT util)
+
+**Next Steps** (Priority Order):
+1. **Configure Spring Security** - Allow register/login endpoints anonymous access
+2. **Create database tables** - Execute init.sql script
+3. **Test authentication APIs** - Verify register/login functionality
+4. **Implement JWT filter** - Add token authentication for protected endpoints
+5. **Implement token refresh** - POST /api/v1/auth/refresh
+
+**Session Summaries**:
+- `SESSION-2026-02-14.md` - Initial setup, MyBatis-Plus integration, auth module structure
+- `SESSION-2026-02-15.md` - UserService implementation, ResultCode enhancement, BusinessException optimization
 
 **Reference Documentation**:
 - `docs/SmartATS-Design-Document.md` - Complete technical specification, database schema, API definitions, architecture diagrams
-- `docs/SmartATS-从0到1开发教学手册.md` - Step-by-step development tutorial for Java beginners (Chinese)
+- `docs/SmartATS-从0到1开发教学手册.md` - Step-by-step development tutorial with Spring Security configuration guide (Chinese)
 
 ## Technology Stack
 
@@ -168,6 +191,77 @@ Producer → smartats.exchange → resume.parse.queue → Consumer
                                         ↓ (fail after retry)
                                   smartats.dlx → resume.parse.dlq
 ```
+
+## Development Guidelines (Critical!)
+
+### ⚠️ Development Order Matters!
+
+> **"Open the door before entering the room"**
+>
+> For systems requiring authentication, ALWAYS configure Spring Security BEFORE writing business logic.
+
+**Correct Order**:
+1. Configure Spring Security (allow anonymous access to register/login)
+2. Create database tables
+3. Implement business logic (UserService, Controller)
+4. Test APIs immediately
+
+**Wrong Order** (will cause frustration):
+1. ❌ Write business logic first
+2. ❌ Write Controller
+3. ❌ Test → All requests return 401 (blocked by Spring Security)
+4. ❌ Realize need to configure Security (go back to step 1)
+
+### Code Quality Standards
+
+**MyBatis-Plus Usage**:
+- ✅ Use `LambdaQueryWrapper` (type-safe, refactor-friendly)
+- ❌ Don't use string-based `QueryWrapper` (runtime errors, hard to refactor)
+
+```java
+// ✅ Correct
+userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
+
+// ❌ Wrong
+userMapper.selectOne(new QueryWrapper<User>().eq("username", username));
+```
+
+**Exception Handling**:
+- Use `BusinessException` for business errors
+- Use `ResultCode` enum for error codes
+- Provide unified error messages for security (prevent username enumeration)
+
+**Password Security**:
+- Always use BCrypt encryption (`BCryptPasswordEncoder`)
+- Never store plain text passwords
+- Never return passwords in API responses
+
+**Logging Standards**:
+- `INFO`: Important business flow milestones
+- `WARN`: Potential issues that need attention
+- `ERROR`: System-level errors requiring immediate action
+- `DEBUG`: Detailed debugging info (disabled in production)
+
+**Terminology**:
+- ✅ "登录" (login) - Standard Chinese term
+- ❌ "登陆" (land) - Incorrect term (means "disembark")
+
+### Transaction Management
+
+Use `@Transactional(rollbackFor = Exception.class)` for:
+- Multi-step database operations
+- Operations that must be atomic (all succeed or all fail)
+- Any method modifying multiple tables
+
+### Testing Checklist
+
+Before marking a feature as complete, verify:
+- [ ] API returns correct response codes
+- [ ] Error scenarios return appropriate error messages
+- [ ] Database transactions are handled correctly
+- [ ] Sensitive data is not exposed in responses
+- [ ] Logs are written at appropriate levels
+- [ ] Code follows project style guidelines
 
 ## Development Workflow Recommendations
 
