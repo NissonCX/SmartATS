@@ -197,31 +197,38 @@ public class JobService {
         String cacheKey = RedisKeyConstants.CACHE_JOB_KEY_PREFIX + id;
         String cachedData = redisTemplate.opsForValue().get(cacheKey);
 
-        if (cachedData != null) {
-            try {
-                return objectMapper.readValue(cachedData, JobResponse.class);
-            } catch (JsonProcessingException e) {
-                log.error("缓存数据反序列化失败", e);
-            }
-        }
-
+        // 无论缓存是否命中，都要更新浏览次数
         Job job = jobMapper.selectById(id);
         if (job == null) {
             log.warn("职位不存在：id={}", id);
             throw new BusinessException(ResultCode.NOT_FOUND, "职位不存在");
         }
 
-        JobResponse response = convertToResponse(job);
+        // 更新浏览次数
+        job.setViewCount(job.getViewCount() + 1);
+        jobMapper.updateById(job);
 
+        // 如果缓存未命中，转换并缓存
+        JobResponse response;
+        if (cachedData != null) {
+            try {
+                response = objectMapper.readValue(cachedData, JobResponse.class);
+                // 更新 response 中的 viewCount
+                response.setViewCount(job.getViewCount());
+            } catch (JsonProcessingException e) {
+                log.error("缓存数据反序列化失败", e);
+                response = convertToResponse(job);
+            }
+        } else {
+            response = convertToResponse(job);
+        }
+
+        // 写入/更新缓存
         try {
             redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(response), 30, TimeUnit.MINUTES);
         } catch (JsonProcessingException e) {
             log.error("缓存数据序列化失败", e);
         }
-
-        // 异步更新浏览次数
-        job.setViewCount(job.getViewCount() + 1);
-        jobMapper.updateById(job);
 
         return response;
     }
