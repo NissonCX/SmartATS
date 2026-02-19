@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -45,6 +46,10 @@ public class JobService {
         job.setCreatorId(creatorId);
         job.setStatus("DRAFT");
         job.setViewCount(0);
+
+        // 手动设置时间（暂时代替自动填充）
+        job.setCreatedAt(LocalDateTime.now());
+        job.setUpdatedAt(LocalDateTime.now());
 
         // JSON 序列化：List<String> -> JSON 字符串
         if (request.getRequiredSkills() != null && !request.getRequiredSkills().isEmpty()) {
@@ -97,8 +102,7 @@ public class JobService {
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         if (!job.getCreatorId().equals(operatorId)) {
-            log.warn("无权限修改职位：jobId={}, creatorId={}, operatorId={}",
-                    request.getId(), job.getCreatorId(), operatorId);
+            log.warn("无权限修改职位：jobId={}, creatorId={}, operatorId={}", request.getId(), job.getCreatorId(), operatorId);
             throw new BusinessException(ResultCode.FORBIDDEN, "无权限修改此职位");
         }
 
@@ -231,13 +235,7 @@ public class JobService {
         LambdaQueryWrapper<Job> queryWrapper = new LambdaQueryWrapper<>();
 
         if (StringUtils.hasText(request.getKeyword())) {
-            queryWrapper.and(wrapper -> wrapper
-                    .like(Job::getTitle, request.getKeyword())
-                    .or()
-                    .like(Job::getDescription, request.getKeyword())
-                    .or()
-                    .like(Job::getRequirements, request.getKeyword())
-            );
+            queryWrapper.and(wrapper -> wrapper.like(Job::getTitle, request.getKeyword()).or().like(Job::getDescription, request.getKeyword()).or().like(Job::getRequirements, request.getKeyword()));
         }
 
         if (StringUtils.hasText(request.getDepartment())) {
@@ -291,9 +289,7 @@ public class JobService {
         Page<Job> jobPage = jobMapper.selectPage(page, queryWrapper);
 
         Page<JobResponse> responsePage = new Page<>(jobPage.getCurrent(), jobPage.getSize(), jobPage.getTotal());
-        List<JobResponse> responseList = jobPage.getRecords().stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
+        List<JobResponse> responseList = jobPage.getRecords().stream().map(this::convertToResponse).collect(Collectors.toList());
 
         responsePage.setRecords(responseList);
 
@@ -392,14 +388,10 @@ public class JobService {
         log.info("查询热门职位：limit={}", limit);
 
         LambdaQueryWrapper<Job> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(Job::getStatus, "PUBLISHED")
-                .orderByDesc(Job::getViewCount)
-                .last("LIMIT " + (limit != null ? limit : 10));
+        queryWrapper.eq(Job::getStatus, "PUBLISHED").orderByDesc(Job::getViewCount).last("LIMIT " + (limit != null ? limit : 10));
 
         List<Job> jobs = jobMapper.selectList(queryWrapper);
-        return jobs.stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
+        return jobs.stream().map(this::convertToResponse).collect(Collectors.toList());
     }
 
     /**
@@ -412,10 +404,7 @@ public class JobService {
         // JSON 反序列化：JSON 字符串 -> List<String>
         if (StringUtils.hasText(job.getRequiredSkills())) {
             try {
-                response.setRequiredSkills(
-                        java.util.Arrays.stream(objectMapper.readValue(job.getRequiredSkills(), String[].class))
-                                .collect(Collectors.toList())
-                );
+                response.setRequiredSkills(java.util.Arrays.stream(objectMapper.readValue(job.getRequiredSkills(), String[].class)).collect(Collectors.toList()));
             } catch (JsonProcessingException e) {
                 log.error("技能标签反序列化失败", e);
             }
