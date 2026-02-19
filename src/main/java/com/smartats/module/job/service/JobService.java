@@ -7,9 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartats.common.constants.RedisKeyConstants;
 import com.smartats.common.exception.BusinessException;
 import com.smartats.common.result.ResultCode;
-import com.smartats.module.job.dto.request.CreateJobRequest;
-import com.smartats.module.job.dto.request.JobQueryRequest;
-import com.smartats.module.job.dto.request.UpdateJobRequest;
+import com.smartats.module.job.dto.request.*;
 import com.smartats.module.job.dto.response.JobResponse;
 import com.smartats.module.job.entity.Job;
 import com.smartats.module.job.mapper.JobMapper;
@@ -17,18 +15,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-/**
- * 职位服务
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -45,23 +40,13 @@ public class JobService {
     public Long createJob(CreateJobRequest request, Long creatorId) {
         log.info("创建职位：title={}, creatorId={}", request.getTitle(), creatorId);
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 1 步：创建职位实体
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
         Job job = new Job();
         BeanUtils.copyProperties(request, job);
-
-        // 设置创建者
         job.setCreatorId(creatorId);
-
-        // 设置默认状态为草稿
         job.setStatus("DRAFT");
-
-        // 设置默认浏览次数
         job.setViewCount(0);
 
-        // 处理技能标签（List -> JSON）
+        // JSON 序列化：List<String> -> JSON 字符串
         if (request.getRequiredSkills() != null && !request.getRequiredSkills().isEmpty()) {
             try {
                 job.setRequiredSkills(objectMapper.writeValueAsString(request.getRequiredSkills()));
@@ -70,10 +55,6 @@ public class JobService {
                 throw new BusinessException(ResultCode.INTERNAL_ERROR, "技能标签格式错误");
             }
         }
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 2 步：保存到数据库
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         int result = jobMapper.insert(job);
         if (result <= 0) {
@@ -86,14 +67,23 @@ public class JobService {
     }
 
     /**
-     * 更新职位
+     * 更新职位（延迟双删）
      */
     @Transactional(rollbackFor = Exception.class)
-    public void updateJob(UpdateJobRequest request, Long creatorId) {
-        log.info("更新职位：id={}, operatorId={}", request.getId(), creatorId);
+    public void updateJob(UpdateJobRequest request, Long operatorId) {
+        log.info("更新职位：id={}, operatorId={}", request.getId(), operatorId);
+
+        String cacheKey = RedisKeyConstants.CACHE_JOB_KEY_PREFIX + request.getId();
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 1 步：查询职位是否存在
+        // 第 1 步：第一次删除缓存（更新前）
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        redisTemplate.delete(cacheKey);
+        log.debug("第 1 次删除缓存：key={}", cacheKey);
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 第 2 步：查询职位是否存在
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         Job job = jobMapper.selectById(request.getId());
@@ -103,17 +93,17 @@ public class JobService {
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 2 步：检查权限（只有创建者可以修改）
+        // 第 3 步：检查权限
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-        if (!job.getCreatorId().equals(creatorId)) {
+        if (!job.getCreatorId().equals(operatorId)) {
             log.warn("无权限修改职位：jobId={}, creatorId={}, operatorId={}",
-                    request.getId(), job.getCreatorId(), creatorId);
+                    request.getId(), job.getCreatorId(), operatorId);
             throw new BusinessException(ResultCode.FORBIDDEN, "无权限修改此职位");
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 3 步：更新职位信息
+        // 第 4 步：更新职位信息
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         if (StringUtils.hasText(request.getTitle())) {
@@ -156,7 +146,7 @@ public class JobService {
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 4 步：保存到数据库
+        // 第 5 步：更新数据库
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         int result = jobMapper.updateById(job);
@@ -166,13 +156,32 @@ public class JobService {
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 5 步：删除 Redis 缓存
+        // 第 6 步：延迟双删（异步删除缓存）
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-        String cacheKey = RedisKeyConstants.JWT_TOKEN_KEY_PREFIX.replace("jwt:token:", "cache:job:") + job.getId();
-        redisTemplate.delete(cacheKey);
+        asyncDeleteCache(cacheKey);
 
         log.info("职位更新成功：id={}", job.getId());
+    }
+
+    /**
+     * 异步延迟删除缓存（延迟双删）
+     *
+     * @param cacheKey 缓存 Key
+     */
+    @Async("asyncExecutor")
+    public void asyncDeleteCache(String cacheKey) {
+        try {
+            // 延迟 500ms（大于读请求的耗时）
+            Thread.sleep(500);
+
+            redisTemplate.delete(cacheKey);
+            log.debug("第 2 次删除缓存（延迟）：key={}", cacheKey);
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("延迟删除缓存失败：key={}", cacheKey, e);
+        }
     }
 
     /**
@@ -181,11 +190,7 @@ public class JobService {
     public JobResponse getJobDetail(Long id) {
         log.info("查询职位详情：id={}", id);
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 1 步：先查 Redis 缓存
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-        String cacheKey = "cache:job:" + id;
+        String cacheKey = RedisKeyConstants.CACHE_JOB_KEY_PREFIX + id;
         String cachedData = redisTemplate.opsForValue().get(cacheKey);
 
         if (cachedData != null) {
@@ -196,25 +201,13 @@ public class JobService {
             }
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 2 步：缓存未命中，查询数据库
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
         Job job = jobMapper.selectById(id);
         if (job == null) {
             log.warn("职位不存在：id={}", id);
             throw new BusinessException(ResultCode.NOT_FOUND, "职位不存在");
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 3 步：转换为响应对象
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
         JobResponse response = convertToResponse(job);
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 4 步：回填缓存（TTL 30分钟）
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         try {
             redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(response), 30, TimeUnit.MINUTES);
@@ -222,10 +215,7 @@ public class JobService {
             log.error("缓存数据序列化失败", e);
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 5 步：增加浏览次数（异步更新，不影响响应速度）
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+        // 异步更新浏览次数
         job.setViewCount(job.getViewCount() + 1);
         jobMapper.updateById(job);
 
@@ -238,13 +228,8 @@ public class JobService {
     public Page<JobResponse> getJobList(JobQueryRequest request) {
         log.info("查询职位列表：{}", request);
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 1 步：构建查询条件
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
         LambdaQueryWrapper<Job> queryWrapper = new LambdaQueryWrapper<>();
 
-        // 关键词搜索（标题、描述、要求）
         if (StringUtils.hasText(request.getKeyword())) {
             queryWrapper.and(wrapper -> wrapper
                     .like(Job::getTitle, request.getKeyword())
@@ -255,42 +240,33 @@ public class JobService {
             );
         }
 
-        // 部门筛选
         if (StringUtils.hasText(request.getDepartment())) {
             queryWrapper.eq(Job::getDepartment, request.getDepartment());
         }
 
-        // 职位类型筛选
         if (StringUtils.hasText(request.getJobType())) {
             queryWrapper.eq(Job::getJobType, request.getJobType());
         }
 
-        // 学历筛选
         if (StringUtils.hasText(request.getEducation())) {
             queryWrapper.eq(Job::getEducation, request.getEducation());
         }
 
-        // 经验筛选（要求 >= 最低经验）
         if (request.getExperienceMin() != null) {
             queryWrapper.le(Job::getExperienceMin, request.getExperienceMin());
         }
 
-        // 薪资筛选（薪资下限 >= 要求）
         if (request.getSalaryMin() != null) {
             queryWrapper.ge(Job::getSalaryMin, request.getSalaryMin());
         }
 
-        // 状态筛选（默认只显示已发布）
         if (StringUtils.hasText(request.getStatus())) {
             queryWrapper.eq(Job::getStatus, request.getStatus());
         } else {
             queryWrapper.eq(Job::getStatus, "PUBLISHED");
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 2 步：排序
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+        // 排序
         if ("created_at".equals(request.getOrderBy())) {
             if ("asc".equals(request.getOrderDirection())) {
                 queryWrapper.orderByAsc(Job::getCreatedAt);
@@ -311,16 +287,8 @@ public class JobService {
             }
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 3 步：分页查询
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
         Page<Job> page = new Page<>(request.getPageNum(), request.getPageSize());
         Page<Job> jobPage = jobMapper.selectPage(page, queryWrapper);
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 第 4 步：转换为响应对象
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         Page<JobResponse> responsePage = new Page<>(jobPage.getCurrent(), jobPage.getSize(), jobPage.getTotal());
         List<JobResponse> responseList = jobPage.getRecords().stream()
@@ -356,7 +324,7 @@ public class JobService {
         jobMapper.updateById(job);
 
         // 清除缓存
-        redisTemplate.delete("cache:job:" + id);
+        redisTemplate.delete(RedisKeyConstants.CACHE_JOB_KEY_PREFIX + id);
 
         log.info("职位发布成功：id={}", id);
     }
@@ -385,7 +353,7 @@ public class JobService {
         jobMapper.updateById(job);
 
         // 清除缓存
-        redisTemplate.delete("cache:job:" + id);
+        redisTemplate.delete(RedisKeyConstants.CACHE_JOB_KEY_PREFIX + id);
 
         log.info("职位关闭成功：id={}", id);
     }
@@ -406,14 +374,13 @@ public class JobService {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权限操作此职位");
         }
 
-        // MyBatis-Plus 逻辑删除
         int result = jobMapper.deleteById(id);
         if (result <= 0) {
             throw new BusinessException(ResultCode.INTERNAL_ERROR, "职位删除失败");
         }
 
         // 清除缓存
-        redisTemplate.delete("cache:job:" + id);
+        redisTemplate.delete(RedisKeyConstants.CACHE_JOB_KEY_PREFIX + id);
 
         log.info("职位删除成功：id={}", id);
     }
@@ -424,7 +391,6 @@ public class JobService {
     public List<JobResponse> getHotJobs(Integer limit) {
         log.info("查询热门职位：limit={}", limit);
 
-        // 使用浏览次数排序
         LambdaQueryWrapper<Job> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Job::getStatus, "PUBLISHED")
                 .orderByDesc(Job::getViewCount)
@@ -443,11 +409,11 @@ public class JobService {
         JobResponse response = new JobResponse();
         BeanUtils.copyProperties(job, response);
 
-        // 处理技能标签（JSON -> List）
+        // JSON 反序列化：JSON 字符串 -> List<String>
         if (StringUtils.hasText(job.getRequiredSkills())) {
             try {
                 response.setRequiredSkills(
-                        Arrays.stream(objectMapper.readValue(job.getRequiredSkills(), String[].class))
+                        java.util.Arrays.stream(objectMapper.readValue(job.getRequiredSkills(), String[].class))
                                 .collect(Collectors.toList())
                 );
             } catch (JsonProcessingException e) {
@@ -455,12 +421,11 @@ public class JobService {
             }
         }
 
-        // 格式化薪资范围
+        // 格式化显示
         if (job.getSalaryMin() != null && job.getSalaryMax() != null) {
             response.setSalaryRange(job.getSalaryMin() + "K-" + job.getSalaryMax() + "K");
         }
 
-        // 格式化经验范围
         if (job.getExperienceMin() != null && job.getExperienceMax() != null) {
             response.setExperienceRange(job.getExperienceMin() + "-" + job.getExperienceMax() + "年");
         }

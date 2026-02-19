@@ -52,7 +52,7 @@ public class EmailService {
             helper.setTo(to);
 
             // 设置主题
-            helper.setSubject("【SmartATS】注册验证码");
+            helper.setSubject("【SmartATS】邮箱验证码");
 
             // 设置邮件内容
             String content = buildEmailContent(code);
@@ -71,12 +71,12 @@ public class EmailService {
     }
 
     /**
-     * 构建邮件内容（Glassmorphism 风格，国际化设计）
+     * 构建邮件内容（Minimalism Tech 风格，中文版）
      * 设计系统：
-     * - 风格: Glassmorphism（玻璃态）
-     * - 字体: Poppins + Open Sans
-     * - 配色: 专业蓝 (#0369A1) + 天蓝 (#0EA5E9) + 成功绿 (#22C55E)
-     * - 效果: 背景模糊、半透明、渐变、层次深度
+     * - 风格: Minimalism（最小主义）+ Modern Tech
+     * - 字体: 思源黑体/Noto Sans SC（中文友好）+ 系统默认字体
+     * - 配色: 深蓝 (#0F172A) + 科技蓝 (#3B82F6) + 成功绿 (#22C55E)
+     * - 特点: 大量留白、清晰层次、高对比度、无多余装饰
      *
      * @param code 验证码
      * @return HTML 格式的邮件内容
@@ -86,14 +86,11 @@ public class EmailService {
 
         return """
             <!DOCTYPE html>
-            <html lang="en">
+            <html lang="zh-CN">
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Verify Your Email - SmartATS</title>
-                <link rel="preconnect" href="https://fonts.googleapis.com">
-                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+                <title>邮箱验证 - SmartATS</title>
                 <style>
                     /* ========== Reset & Base ========== */
                     *, *::before, *::after {
@@ -103,302 +100,173 @@ public class EmailService {
                     }
 
                     body {
-                        font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                        line-height: 1.7;
-                        color: #0C4A6E;
-                        background: linear-gradient(135deg, #0369A1 0%%, #0EA5E9 50%%, #22C55E 100%%);
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #1E293B;
+                        background: #F8FAFC;
                         padding: 24px;
                         min-height: 100vh;
                         -webkit-font-smoothing: antialiased;
                         -moz-osx-font-smoothing: grayscale;
                     }
 
-                    /* ========== Background Animation ========== */
-                    body::before {
-                        content: '';
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
-                        background-image:
-                            radial-gradient(circle at 20%% 30%%, rgba(255, 255, 255, 0.1) 0%%, transparent 50%%),
-                            radial-gradient(circle at 80%% 70%%, rgba(34, 197, 94, 0.15) 0%%, transparent 50%%),
-                            radial-gradient(circle at 40%% 80%%, rgba(14, 165, 233, 0.1) 0%%, transparent 50%%);
-                        animation: float 20s ease-in-out infinite;
-                        pointer-events: none;
-                    }
-
-                    @keyframes float {
-                        0%%, 100%% { transform: translate(0, 0) scale(1); }
-                        33%% { transform: translate(30px, -30px) scale(1.1); }
-                        66%% { transform: translate(-20px, 20px) scale(0.9); }
-                    }
-
-                    /* ========== Main Container (Glassmorphism) ========== */
+                    /* ========== Main Container ========== */
                     .email-wrapper {
-                        max-width: 620px;
+                        max-width: 600px;
                         margin: 0 auto;
-                        position: relative;
-                        z-index: 1;
                     }
 
                     .email-container {
-                        background: rgba(255, 255, 255, 0.92);
-                        backdrop-filter: blur(20px);
-                        -webkit-backdrop-filter: blur(20px);
-                        border-radius: 24px;
-                        border: 1px solid rgba(255, 255, 255, 0.3);
-                        box-shadow:
-                            0 8px 32px rgba(3, 105, 161, 0.2),
-                            0 2px 8px rgba(0, 0, 0, 0.1),
-                            inset 0 1px 0 rgba(255, 255, 255, 0.5);
+                        background: #FFFFFF;
+                        border-radius: 16px;
+                        border: 1px solid #E2E8F0;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
                         overflow: hidden;
                     }
 
                     /* ========== Header Section ========== */
                     .header {
-                        background: linear-gradient(135deg, #0369A1 0%%, #0EA5E9 100%%);
-                        padding: 48px 40px;
+                        padding: 48px 40px 32px;
                         text-align: center;
-                        position: relative;
-                        overflow: hidden;
-                    }
-
-                    /* Animated pattern overlay */
-                    .header::before {
-                        content: '';
-                        position: absolute;
-                        top: -50%%;
-                        left: -50%%;
-                        width: 200%%;
-                        height: 200%%;
-                        background:
-                            radial-gradient(circle at center, transparent 0%%, transparent 48%%, rgba(255,255,255,0.03) 48%%, rgba(255,255,255,0.03) 50%%);
-                        background-size: 24px 24px;
-                        animation: pattern-move 30s linear infinite;
-                    }
-
-                    @keyframes pattern-move {
-                        0%% { transform: translate(0, 0) rotate(0deg); }
-                        100%% { transform: translate(24px, 24px) rotate(360deg); }
-                    }
-
-                    /* Light reflection effect */
-                    .header::after {
-                        content: '';
-                        position: absolute;
-                        top: -50%%;
-                        right: -30%%;
-                        width: 200%%;
-                        height: 200%%;
-                        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%%, transparent 60%%);
-                        transform: rotate(30deg);
-                        pointer-events: none;
+                        border-bottom: 1px solid #F1F5F9;
                     }
 
                     .logo {
-                        font-family: 'Poppins', sans-serif;
-                        font-size: 42px;
+                        font-size: 32px;
                         font-weight: 700;
-                        color: #ffffff;
-                        letter-spacing: -0.5px;
+                        color: #0F172A;
+                        letter-spacing: -0.03em;
                         margin-bottom: 8px;
-                        position: relative;
-                        z-index: 1;
-                        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
                     }
 
                     .tagline {
-                        font-family: 'Open Sans', sans-serif;
-                        color: rgba(255, 255, 255, 0.95);
-                        font-size: 15px;
+                        font-size: 14px;
                         font-weight: 500;
-                        letter-spacing: 0.5px;
-                        position: relative;
-                        z-index: 1;
+                        color: #64748B;
+                        letter-spacing: 0.02em;
                     }
 
                     /* ========== Content Section ========== */
                     .content {
-                        padding: 48px 40px;
+                        padding: 40px;
                     }
 
                     .greeting {
-                        font-family: 'Poppins', sans-serif;
-                        font-size: 26px;
+                        font-size: 22px;
                         font-weight: 600;
-                        color: #0C4A6E;
+                        color: #0F172A;
                         margin-bottom: 16px;
                     }
 
                     .message {
-                        font-size: 16px;
+                        font-size: 15px;
                         color: #475569;
-                        line-height: 1.8;
+                        line-height: 1.7;
                         margin-bottom: 32px;
                     }
 
                     /* ========== Verification Code Card ========== */
                     .code-card {
-                        background: linear-gradient(135deg, rgba(3, 105, 161, 0.05) 0%%, rgba(14, 165, 233, 0.08) 100%%);
-                        border-radius: 16px;
-                        padding: 40px;
-                        margin: 32px 0;
+                        background: #F8FAFC;
+                        border: 1px solid #E2E8F0;
+                        border-radius: 12px;
+                        padding: 32px;
+                        margin: 24px 0;
                         text-align: center;
-                        position: relative;
-                        border: 2px solid rgba(3, 105, 161, 0.15);
-                        box-shadow:
-                            0 4px 16px rgba(3, 105, 161, 0.08),
-                            inset 0 1px 0 rgba(255, 255, 255, 0.8);
-                        overflow: hidden;
-                    }
-
-                    /* Animated top border */
-                    .code-card::before {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        height: 3px;
-                        background: linear-gradient(90deg, #0369A1, #0EA5E9, #22C55E, #0EA5E9, #0369A1);
-                        background-size: 200%% 100%%;
-                        animation: shimmer 3s linear infinite;
-                    }
-
-                    @keyframes shimmer {
-                        0%% { background-position: 200%% 0; }
-                        100%% { background-position: -200%% 0; }
-                    }
-
-                    /* Subtle grid pattern */
-                    .code-card::after {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
-                        background-image:
-                            linear-gradient(rgba(3, 105, 161, 0.03) 1px, transparent 1px),
-                            linear-gradient(90deg, rgba(3, 105, 161, 0.03) 1px, transparent 1px);
-                        background-size: 20px 20px;
-                        pointer-events: none;
                     }
 
                     .code-label {
-                        font-family: 'Open Sans', sans-serif;
-                        font-size: 13px;
-                        font-weight: 600;
-                        color: #0369A1;
-                        text-transform: uppercase;
-                        letter-spacing: 2.5px;
-                        margin-bottom: 24px;
-                        position: relative;
-                        z-index: 1;
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: #64748B;
+                        letter-spacing: 0.1em;
+                        margin-bottom: 16px;
                     }
 
                     .verification-code {
-                        font-family: 'Poppins', sans-serif;
-                        font-size: 48px;
+                        font-size: 40px;
                         font-weight: 700;
-                        color: #0369A1;
-                        letter-spacing: 14px;
-                        margin: 24px 0;
-                        text-shadow: 0 2px 8px rgba(3, 105, 161, 0.15);
-                        position: relative;
-                        z-index: 1;
+                        color: #0F172A;
+                        letter-spacing: 0.1em;
+                        margin: 16px 0;
                         user-select: all;
                     }
 
                     .code-expire {
-                        font-size: 14px;
+                        font-size: 13px;
                         color: #64748B;
-                        margin-top: 20px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 6px;
-                        position: relative;
-                        z-index: 1;
+                        margin-top: 16px;
                     }
 
                     .code-expire strong {
-                        color: #0369A1;
-                        font-weight: 600;
+                        color: #0F172A;
+                        font-weight: 700;
                     }
 
-                    /* ========== Alert Box ========== */
-                    .alert-box {
-                        background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%%, rgba(14, 165, 233, 0.06) 100%%);
-                        border-left: 4px solid #22C55E;
-                        padding: 20px 24px;
-                        margin: 28px 0;
-                        border-radius: 12px;
+                    /* ========== Info Box ========== */
+                    .info-box {
+                        background: #EFF6FF;
+                        border-left: 3px solid #3B82F6;
+                        padding: 16px 20px;
+                        margin: 24px 0;
+                        border-radius: 0 8px 8px 0;
+                    }
+
+                    .info-box-title {
+                        font-weight: 700;
+                        color: #1E40AF;
+                        font-size: 13px;
+                        margin-bottom: 4px;
+                    }
+
+                    .info-box-content {
                         font-size: 14px;
-                        color: #475569;
-                        line-height: 1.7;
-                        box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
-                    }
-
-                    .alert-box strong {
-                        color: #0369A1;
-                        font-weight: 600;
+                        color: #1E40AF;
+                        line-height: 1.6;
                     }
 
                     /* ========== Security Notice ========== */
                     .security-notice {
-                        font-size: 14px;
-                        color: #64748B;
+                        font-size: 13px;
+                        color: #94A3B8;
                         text-align: center;
                         margin: 32px 0;
-                        padding: 20px;
-                        background: rgba(248, 250, 252, 0.8);
-                        border-radius: 12px;
-                        border: 1px dashed rgba(148, 163, 184, 0.4);
+                        padding: 16px;
                     }
 
                     /* ========== Divider ========== */
                     .divider {
                         height: 1px;
-                        background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.3), transparent);
-                        margin: 32px 0;
+                        background: #F1F5F9;
+                        margin: 0;
                     }
 
                     /* ========== Footer ========== */
                     .footer {
-                        background: linear-gradient(180deg, rgba(3, 105, 161, 0.03) 0%%, rgba(14, 165, 233, 0.05) 100%%);
                         padding: 32px 40px;
                         text-align: center;
-                        border-top: 1px solid rgba(148, 163, 184, 0.2);
                     }
 
                     .footer-text {
                         font-size: 13px;
                         color: #64748B;
-                        line-height: 1.8;
+                        line-height: 1.6;
                         margin: 8px 0;
                     }
 
                     .footer-links {
-                        margin: 20px 0;
-                        padding: 20px 0;
-                        border-top: 1px solid rgba(148, 163, 184, 0.2);
-                        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+                        margin: 16px 0;
                     }
 
                     .footer-link {
-                        color: #0369A1;
+                        color: #3B82F6;
                         text-decoration: none;
                         font-size: 13px;
                         font-weight: 500;
-                        margin: 0 12px;
-                        transition: color 200ms ease;
+                        margin: 0 8px;
                     }
 
                     .footer-link:hover {
-                        color: #0EA5E9;
                         text-decoration: underline;
                     }
 
@@ -419,34 +287,20 @@ public class EmailService {
                         }
 
                         .logo {
-                            font-size: 36px;
+                            font-size: 28px;
                         }
 
                         .greeting {
-                            font-size: 22px;
+                            font-size: 20px;
                         }
 
                         .verification-code {
-                            font-size: 36px;
-                            letter-spacing: 10px;
+                            font-size: 32px;
+                            letter-spacing: 0.05em;
                         }
 
                         .code-card {
-                            padding: 28px 20px;
-                        }
-
-                        .footer-link {
-                            display: block;
-                            margin: 8px 0;
-                        }
-                    }
-
-                    /* ========== Accessibility: Reduced Motion ========== */
-                    @media (prefers-reduced-motion: reduce) {
-                        *, *::before, *::after {
-                            animation-duration: 0.01ms !important;
-                            animation-iteration-count: 1 !important;
-                            transition-duration: 0.01ms !important;
+                            padding: 24px 20px;
                         }
                     }
                 </style>
@@ -457,34 +311,37 @@ public class EmailService {
                         <!-- Header -->
                         <div class="header">
                             <div class="logo">SmartATS</div>
-                            <div class="tagline">Intelligent Recruitment Platform</div>
+                            <div class="tagline">智能招聘管理平台</div>
                         </div>
 
                         <!-- Content -->
                         <div class="content">
-                            <div class="greeting">Hello,</div>
+                            <div class="greeting">您好！</div>
 
-                            <div class="message">
-                                Thank you for choosing SmartATS! You're just one step away from accessing our intelligent recruitment platform. Please use the verification code below to complete your registration.
-                            </div>
+                            <p class="message">
+                                感谢您注册 SmartATS。请使用下方的验证码完成注册流程，激活您的账户。
+                            </p>
 
                             <!-- Verification Code Card -->
                             <div class="code-card">
-                                <div class="code-label">Verification Code</div>
+                                <div class="code-label">邮箱验证码</div>
                                 <div class="verification-code">%s</div>
                                 <div class="code-expire">
-                                    Valid for <strong>%d minutes</strong>
+                                    验证码有效期为 <strong>%d 分钟</strong>
                                 </div>
                             </div>
 
-                            <!-- Alert Box -->
-                            <div class="alert-box">
-                                <strong>Tip:</strong> Please enter this code on the registration page to complete your signup. Keep this code secure and do not share it with anyone.
+                            <!-- Info Box -->
+                            <div class="info-box">
+                                <div class="info-box-title">下一步</div>
+                                <div class="info-box-content">
+                                    在注册页面输入此验证码即可激活账户，开始使用 SmartATS 智能招聘服务。
+                                </div>
                             </div>
 
                             <!-- Security Notice -->
                             <div class="security-notice">
-                                For your security, this code will expire after use. If you didn't request this code, please ignore this email or contact our support team.
+                                如果您没有请求此验证码，请忽略此邮件。
                             </div>
                         </div>
 
@@ -494,19 +351,21 @@ public class EmailService {
                         <!-- Footer -->
                         <div class="footer">
                             <p class="footer-text">
-                                This is an automated email from SmartATS.<br>
-                                Please do not reply directly to this message.
+                                此邮件由 SmartATS 系统自动发送，请勿直接回复。<br>
+                                如需帮助，请联系客服团队。
                             </p>
 
                             <div class="footer-links">
-                                <a href="https://smartats.com/privacy" class="footer-link">Privacy Policy</a>
-                                <a href="https://smartats.com/terms" class="footer-link">Terms of Service</a>
-                                <a href="https://smartats.com/support" class="footer-link">Contact Support</a>
+                                <a href="https://smartats.com/privacy" class="footer-link">隐私政策</a>
+                                <span style="color: #94A3B8">·</span>
+                                <a href="https://smartats.com/terms" class="footer-link">服务条款</a>
+                                <span style="color: #94A3B8">·</span>
+                                <a href="https://smartats.com/support" class="footer-link">联系客服</a>
                             </div>
 
                             <p class="copyright">
-                                &copy; 2026 SmartATS. All rights reserved.<br>
-                                Building the future of intelligent recruitment.
+                                &copy; 2026 SmartATS. 保留所有权利。<br>
+                                构建智能招聘的未来
                             </p>
                         </div>
                     </div>
