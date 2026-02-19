@@ -84,6 +84,34 @@ public class RedisKeyConstants {
     public static final String RESUME_TASK_KEY_PREFIX = "task:resume:";
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 职位缓存相关
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /**
+     * 职位详情缓存 Key 前缀
+     * <p>
+     * 完整格式：cache:job:{jobId}
+     * <p>
+     * Value：JSON 格式的职位详情对象
+     * <p>
+     * TTL：30分钟
+     */
+    public static final String CACHE_JOB_KEY_PREFIX = "cache:job:";
+
+    /**
+     * 热门职位排行 Key
+     * <p>
+     * 完整格式：cache:job:hot
+     * <p>
+     * Type：ZSet（有序集合）
+     * <p>
+     * Score：浏览次数
+     * <p>
+     * TTL：10分钟
+     */
+    public static final String CACHE_JOB_HOT_KEY = "cache:job:hot";
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 角色前缀
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
