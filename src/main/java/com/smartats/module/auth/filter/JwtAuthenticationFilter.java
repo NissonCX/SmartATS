@@ -86,20 +86,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
             String redisKey = RedisKeyConstants.JWT_TOKEN_KEY_PREFIX + userId;
+            log.debug("查询 Redis 中的 Token: key={}", redisKey);
+
             String storedToken = redisTemplate.opsForValue().get(redisKey);
 
             if (storedToken == null) {
-                log.warn("Token 不存在于 Redis 中，可能已被撤销: userId={}", userId);
+                log.warn("Token 不存在于 Redis 中，可能已被撤销: userId={}, redisKey={}", userId, redisKey);
                 filterChain.doFilter(request, response);
                 return;
             }
 
             // 验证 Token 是否匹配（防止 Token 被替换）
             if (!storedToken.equals(token)) {
-                log.warn("Token 与 Redis 中存储的不匹配: userId={}", userId);
+                log.warn("Token 与 Redis 中存储的不匹配: userId={}, storedToken={}, requestToken={}",
+                        userId, storedToken.substring(0, Math.min(20, storedToken.length())) + "...",
+                        token.substring(0, Math.min(20, token.length())) + "...");
                 filterChain.doFilter(request, response);
                 return;
             }
+
+            log.debug("Token Redis 验证通过: userId={}", userId);
 
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             // 第 4 步：验证 Token 有效性（签名、过期时间）

@@ -1,6 +1,7 @@
 package com.smartats.module.resume.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartats.common.exception.BusinessException;
 import com.smartats.common.result.ResultCode;
 import com.smartats.module.resume.dto.ResumeUploadResponse;
@@ -11,7 +12,7 @@ import com.smartats.infrastructure.storage.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,6 +23,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 简历服务
+ * <p>
+ * 功能：
+ * 1. 简历上传（文件存储 + 去重检查）
+ * 2. 任务状态查询
+ * 3. 异步解析（TODO: MQ 消费者）
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,7 +38,8 @@ public class ResumeService {
 
     private final ResumeMapper resumeMapper;
     private final FileStorageService fileStorageService;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final ObjectMapper objectMapper;
 
     private static final String RESUME_DEDUP_KEY_PREFIX = "dedup:resume:";
     private static final String TASK_STATUS_KEY_PREFIX = "task:resume:";
@@ -96,7 +106,7 @@ public class ResumeService {
 
         // 7. 写入去重标记（Redis）
         String dedupKey = RESUME_DEDUP_KEY_PREFIX + fileHash;
-        redisTemplate.opsForValue().set(dedupKey, resume.getId(), 7, TimeUnit.DAYS);
+        stringRedisTemplate.opsForValue().set(dedupKey, resume.getId().toString(), 7, TimeUnit.DAYS);
 
         // 8. 生成任务ID
         String taskId = UUID.randomUUID().toString();
@@ -107,7 +117,12 @@ public class ResumeService {
         taskStatus.setProgress(0);
 
         String taskKey = TASK_STATUS_KEY_PREFIX + taskId;
-        redisTemplate.opsForValue().set(taskKey, taskStatus, TASK_STATUS_TTL, TimeUnit.HOURS);
+        try {
+            String json = objectMapper.writeValueAsString(taskStatus);
+            stringRedisTemplate.opsForValue().set(taskKey, json, TASK_STATUS_TTL, TimeUnit.HOURS);
+        } catch (Exception e) {
+            log.error("任务状态序列化失败: taskKey={}", taskKey, e);
+        }
 
         // 10. 发送 MQ 消息（下一阶段实现）
         // TODO: 发送 MQ 消息到解析队列
@@ -128,14 +143,23 @@ public class ResumeService {
     public TaskStatusResponse getTaskStatus(String taskId) {
         String taskKey = TASK_STATUS_KEY_PREFIX + taskId;
 
-        // 1. 先查 Redis
-        TaskStatusResponse status = (TaskStatusResponse) redisTemplate.opsForValue().get(taskKey);
+        log.debug("查询任务状态: taskKey={}", taskKey);
 
-        if (status != null) {
-            return status;
+        // 1. 先查 Redis
+        String json = stringRedisTemplate.opsForValue().get(taskKey);
+
+        if (json != null) {
+            try {
+                TaskStatusResponse status = objectMapper.readValue(json, TaskStatusResponse.class);
+                log.debug("任务状态查询成功: taskId={}, status={}", taskId, status.getStatus());
+                return status;
+            } catch (Exception e) {
+                log.error("任务状态反序列化失败: taskKey={}, json={}", taskKey, json, e);
+            }
         }
 
         // 2. Redis 没有，返回默认状态
+        log.debug("任务状态不存在: taskId={}", taskId);
         return new TaskStatusResponse("NOT_FOUND", null, null, null, 0);
     }
 
@@ -169,10 +193,10 @@ public class ResumeService {
     private Resume checkDuplicate(String fileHash) {
         // 1. 先查 Redis 去重标记
         String dedupKey = RESUME_DEDUP_KEY_PREFIX + fileHash;
-        Object cachedResumeId = redisTemplate.opsForValue().get(dedupKey);
+        String cachedResumeId = stringRedisTemplate.opsForValue().get(dedupKey);
 
         if (cachedResumeId != null) {
-            Long resumeId = Long.valueOf(cachedResumeId.toString());
+            Long resumeId = Long.valueOf(cachedResumeId);
             return resumeMapper.selectById(resumeId);
         }
 
@@ -185,7 +209,7 @@ public class ResumeService {
 
         // 3. 如果数据库有，回填 Redis
         if (resume != null) {
-            redisTemplate.opsForValue().set(dedupKey, resume.getId(), 7, TimeUnit.DAYS);
+            stringRedisTemplate.opsForValue().set(dedupKey, resume.getId().toString(), 7, TimeUnit.DAYS);
         }
 
         return resume;
