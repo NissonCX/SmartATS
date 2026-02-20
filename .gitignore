@@ -1,0 +1,115 @@
+# ==================== Maven ====================
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ==================== Java ====================
+*.class
+*.log
+*.ctxt
+.mtj.tmp/
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# ==================== Spring Boot ====================
+spring-boot-starter-parent/
+*.iml
+*.iws
+*.ipr
+
+# ==================== IDE ====================
+## IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+.idea_modules/
+
+## Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+## VSCode
+.vscode/
+*.code-workspace
+
+## NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+## Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+
+## Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ==================== 运行时数据 ====================
+data/
+logs/
+*.log
+*.log.gz
+*.log.zip
+
+# ==================== 数据库 ====================
+data/mysql/
+data/redis/
+data/rabbitmq/
+data/minio/
+*.db
+*.sqlite
+*.sqlite3
+
+# ==================== 配置文件（敏感信息） ====================
+# 如果需要提交配置示例，使用 application.yml.example
+application-local.yml
+application-dev.yml
+application-prod.yml
+.env
+.env.local
+.env.*.local
+
+# ==================== 临时文件 ====================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+GET
+POST
+
+# ==================== 测试覆盖率 ====================
+.serail/
+jacoco.exec
+jacoco-ut.exec
+
+# ==================== 其他 ====================
+GITHUB_PROFILE_README.md
+GET
+POST
+PATCH
+DELETE
+PUT
