@@ -2,6 +2,7 @@ package com.smartats.module.auth.controller;
 
 import com.smartats.common.result.Result;
 import com.smartats.module.auth.dto.request.LoginRequest;
+import com.smartats.module.auth.dto.request.RefreshTokenRequest;
 import com.smartats.module.auth.dto.request.RegisterRequest;
 import com.smartats.module.auth.dto.request.SendVerificationCodeRequest;
 import com.smartats.module.auth.dto.response.LoginResponse;
@@ -51,6 +52,19 @@ public class AuthController {
     public Result<Void> sendVerificationCode(@Valid @RequestBody SendVerificationCodeRequest request) {
         verificationCodeService.sendVerificationCode(request.getEmail());
         return Result.success();
+    }
+
+    /**
+     * 刺新 Access Token
+     * <p>
+     * POST /api/v1/auth/refresh
+     * <p>
+     * 使用登录时返回的 refreshToken 换取新的 accessToken
+     */
+    @PostMapping("/refresh")
+    public Result<LoginResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        LoginResponse response = userService.refreshToken(request.getRefreshToken());
+        return Result.success(response);
     }
 
     /**

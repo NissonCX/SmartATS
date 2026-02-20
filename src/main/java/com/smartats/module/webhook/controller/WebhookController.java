@@ -74,20 +74,19 @@ public class WebhookController {
     }
 
     /**
-     * 测试 Webhook（发送测试事件）
+     * 测试 Webhook（发送测试事件，同步返回结果）
      * POST /api/v1/webhooks/{id}/test
      */
     @PostMapping("/{id}/test")
-    public Result<Void> testWebhook(
+    public Result<Boolean> testWebhook(
             @PathVariable Long id,
             HttpServletRequest httpRequest) {
         Long userId = jwtUtil.getUserIdFromToken(httpRequest);
 
-        // TODO: 实现测试功能
-        // 发送一个测试事件到指定的 Webhook
+        boolean success = webhookService.testWebhook(userId, id);
 
-        log.info("测试 Webhook: userId={}, webhookId={}", userId, id);
+        log.info("测试 Webhook: userId={}, webhookId={}, success={}", userId, id, success);
 
-        return Result.success();
+        return Result.success(success);
     }
 }

@@ -347,6 +347,66 @@ public class WebhookService {
                 .build();
     }
 
+    /**
+     * 测试 Webhook（同步发送，立即返回结果）
+     *
+     * @param userId    当前用户 ID（用于权限校验）
+     * @param webhookId Webhook 配置 ID
+     */
+    public boolean testWebhook(Long userId, Long webhookId) {
+        // 查询 Webhook 配置（同时验证归属权）
+        LambdaQueryWrapper<WebhookConfig> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(WebhookConfig::getId, webhookId)
+               .eq(WebhookConfig::getUserId, userId);
+        WebhookConfig config = webhookConfigMapper.selectOne(wrapper);
+
+        if (config == null) {
+            throw new IllegalArgumentException("Webhook 不存在或无权限: webhookId=" + webhookId);
+        }
+
+        // 构造测试数据
+        Map<String, Object> testData = new HashMap<>();
+        testData.put("message", "This is a test event from SmartATS");
+        testData.put("webhookId", webhookId);
+        testData.put("timestamp", System.currentTimeMillis());
+
+        WebhookPayload payload = buildPayload(WebhookEventType.RESUME_UPLOADED, testData);
+        payload.getData().put("_test", true);
+
+        String signature = generateSignature(payload, config.getSecret());
+        payload.setSignature(signature);
+
+        try {
+            String jsonPayload = objectMapper.writeValueAsString(payload);
+
+            RequestBody body = RequestBody.create(
+                    jsonPayload,
+                    MediaType.parse("application/json; charset=utf-8")
+            );
+
+            Request request = new Request.Builder()
+                    .url(config.getUrl())
+                    .post(body)
+                    .addHeader("X-Webhook-Event", "test")
+                    .addHeader("X-Webhook-Signature", signature)
+                    .addHeader("X-Webhook-ID", payload.getEventId())
+                    .addHeader("X-Webhook-Test", "true")
+                    .addHeader("User-Agent", "SmartATS-Webhook/1.0")
+                    .build();
+
+            try (Response response = httpClient.newCall(request).execute()) {
+                boolean success = response.isSuccessful();
+                log.info("测试 Webhook {}: webhookId={}, url={}, status={}",
+                        success ? "成功" : "失败", webhookId, config.getUrl(), response.code());
+                return success;
+            }
+        } catch (Exception e) {
+            log.error("测试 Webhook 失败: webhookId={}, url={}, error={}",
+                    webhookId, config.getUrl(), e.getMessage());
+            return false;
+        }
+    }
+
     @PreDestroy
     public void destroy() {
         // 关闭 HTTP 客户端连接池

@@ -175,4 +175,75 @@ public class UserService {
                 user.getId(), jwtUtil.getExpiration(), jwtUtil.getRefreshExpiration());
         return response;
     }
+
+    /**
+     * 使用 RefreshToken 换取新的 AccessToken
+     *
+     * @param refreshToken 客户端持有的刷新令牌
+     * @return 包含新 AccessToken 的登录响应
+     */
+    public LoginResponse refreshToken(String refreshToken) {
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 第 1 步：解析 RefreshToken 获取用户名
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        String username;
+        try {
+            username = jwtUtil.getUsernameFromToken(refreshToken);
+        } catch (Exception e) {
+            log.warn("RefreshToken 解析失败: {}", e.getMessage());
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "无效的 refreshToken");
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 第 2 步：查询用户信息
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>().eq(User::getUsername, username));
+        if (user == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "用户不存在");
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 第 3 步：比对 Redis 中存储的 RefreshToken
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        String storedRefreshToken = redisTemplate.opsForValue()
+                .get(RedisKeyConstants.JWT_REFRESH_TOKEN_KEY_PREFIX + user.getId());
+        if (storedRefreshToken == null || !storedRefreshToken.equals(refreshToken)) {
+            log.warn("RefreshToken 不匹配或已失效: userId={}", user.getId());
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "refreshToken 已失效，请重新登录");
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 第 4 步：签发新 AccessToken + 轮换 RefreshToken
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        String newAccessToken = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        String newRefreshToken = jwtUtil.generateRefreshToken(user.getId(), user.getUsername());
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 第 5 步：更新 Redis
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        redisTemplate.opsForValue().set(
+                RedisKeyConstants.JWT_TOKEN_KEY_PREFIX + user.getId(),
+                newAccessToken,
+                jwtUtil.getExpiration(),
+                java.util.concurrent.TimeUnit.SECONDS
+        );
+        redisTemplate.opsForValue().set(
+                RedisKeyConstants.JWT_REFRESH_TOKEN_KEY_PREFIX + user.getId(),
+                newRefreshToken,
+                jwtUtil.getRefreshExpiration(),
+                java.util.concurrent.TimeUnit.SECONDS
+        );
+
+        log.info("Token 刷新成功: userId={}, username={}", user.getId(), user.getUsername());
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 第 6 步：构造响应
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo(
+                user.getId(), user.getUsername(), user.getEmail(),
+                user.getRole(), user.getDailyAiQuota(), 0);
+
+        return new LoginResponse(newAccessToken, newRefreshToken, jwtUtil.getExpiration(), userInfo);
+    }
 }
